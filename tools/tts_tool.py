@@ -2354,8 +2354,13 @@ def text_to_speech_tool(
             logger.info("Generating speech with Piper (local)...")
             _generate_piper_tts(text, file_str, tts_config)
 
+        elif provider == "edge":
+            logger.info("Generating speech with Edge TTS...")
+            _import_edge_tts()
+            asyncio.run(_generate_edge_tts(text, file_str, tts_config))
+
         else:
-            # Default: Edge TTS (free), with NeuTTS as local fallback
+            # Fallback: try Edge TTS first, then NeuTTS
             edge_available = True
             try:
                 _import_edge_tts()
@@ -2363,15 +2368,8 @@ def text_to_speech_tool(
                 edge_available = False
 
             if edge_available:
-                logger.info("Generating speech with Edge TTS...")
-                try:
-                    import concurrent.futures
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                        pool.submit(
-                            lambda: asyncio.run(_generate_edge_tts(text, file_str, tts_config))
-                        ).result(timeout=60)
-                except RuntimeError:
-                    asyncio.run(_generate_edge_tts(text, file_str, tts_config))
+                logger.info("Generating speech with Edge TTS (fallback)...")
+                asyncio.run(_generate_edge_tts(text, file_str, tts_config))
             elif _check_neutts_available():
                 logger.info("Edge TTS not available, falling back to NeuTTS (local)...")
                 provider = "neutts"

@@ -2104,6 +2104,7 @@ def _get_pre_tool_call_directive_details(
     tool_call_id: str = "",
     turn_id: str = "",
     api_request_id: str = "",
+    llm_text: str = "",
     middleware_trace: Optional[List[Dict[str, Any]]] = None,
 ) -> _PreToolCallDirective:
     """Check ``pre_tool_call`` hooks for a blocking or approval directive.
@@ -2149,6 +2150,7 @@ def _get_pre_tool_call_directive_details(
         tool_call_id=tool_call_id,
         turn_id=turn_id,
         api_request_id=api_request_id,
+        llm_text=llm_text,
         middleware_trace=list(middleware_trace or []),
     )
 

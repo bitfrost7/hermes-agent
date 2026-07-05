@@ -1190,6 +1190,7 @@ def handle_function_call(
                     tool_call_id=tool_call_id or "",
                     turn_id=turn_id or "",
                     api_request_id=api_request_id or "",
+                    llm_text="",
                     middleware_trace=list(_tool_middleware_trace),
                 )
             except Exception as _hook_err:

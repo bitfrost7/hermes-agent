@@ -453,6 +453,7 @@ def execute_tool_calls_concurrent(agent, assistant_message, messages: list, effe
                     tool_call_id=getattr(tool_call, "id", "") or "",
                     turn_id=getattr(agent, "_current_turn_id", "") or "",
                     api_request_id=getattr(agent, "_current_api_request_id", "") or "",
+                    llm_text=assistant_message.content or "",
                     middleware_trace=list(middleware_trace),
                 )
             except Exception:
@@ -1101,6 +1102,7 @@ def execute_tool_calls_sequential(agent, assistant_message, messages: list, effe
                     tool_call_id=getattr(tool_call, "id", "") or "",
                     turn_id=getattr(agent, "_current_turn_id", "") or "",
                     api_request_id=getattr(agent, "_current_api_request_id", "") or "",
+                    llm_text=assistant_message.content or "",
                     middleware_trace=list(middleware_trace),
                 )
             except Exception:
