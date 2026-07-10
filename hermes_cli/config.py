@@ -1157,6 +1157,24 @@ DEFAULT_CONFIG = {
         # remains available as a tool regardless of this setting — the routing
         # only controls how inbound user images are presented.
         "image_input_mode": "auto",
+        # Per-block visibility toggles for the system prompt.  Each key controls
+        # whether a specific prompt block is injected into the three-tier prompt
+        # (stable/context/volatile in agent/system_prompt.py:build_system_prompt_parts).
+        # Set ``false`` to strip unnecessary blocks and reduce system-prompt token
+        # count.  When a block is already gated on tool presence (e.g. computer_use
+        # guidance only when the computer_use toolset is loaded), that gate acts
+        # first — the block must also pass this toggle to be injected.
+        "prompt_blocks": {
+            "hermes_help_guidance": True,     # Hermes docs pointer (~70 tok)
+            "nous_subscription": True,         # Nous subscription feature ad
+            "tool_behavior_guidance": True,    # memory/session_search/skills hints
+            "steer_channel_note": True,        # Mid-turn user steering marker (~80 tok)
+            "model_guidance": True,            # Google/OpenAI model-specific guidance
+            "environment_hints": True,         # Host OS, user home, cwd (~50 tok)
+            "coding_guidance": True,           # Coding operating brief + workspace snapshot
+            "active_profile_hint": True,       # Profile name + cross-profile isolation note (~80 tok)
+            "platform_hint": True,             # Per-platform behavior hint
+        },
         "disabled_toolsets": [],
     },
     

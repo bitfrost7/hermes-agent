@@ -194,7 +194,8 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
         stable_parts.append(DEFAULT_AGENT_IDENTITY)
 
     # Pointer to the hermes-agent skill + docs for user questions about Hermes itself.
-    stable_parts.append(HERMES_AGENT_HELP_GUIDANCE)
+    if getattr(agent, "_pb_hermes_help_guidance", True):
+        stable_parts.append(HERMES_AGENT_HELP_GUIDANCE)
 
     # Universal task-completion / no-fabrication guidance.  Applied to ALL
     # models regardless of tool_use_enforcement gating — the failure modes
@@ -218,12 +219,13 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
 
     # Tool-aware behavioral guidance: only inject when the tools are loaded
     tool_guidance = []
-    if "memory" in agent.valid_tool_names:
-        tool_guidance.append(MEMORY_GUIDANCE)
-    if "session_search" in agent.valid_tool_names:
-        tool_guidance.append(SESSION_SEARCH_GUIDANCE)
-    if "skill_manage" in agent.valid_tool_names:
-        tool_guidance.append(SKILLS_GUIDANCE)
+    if getattr(agent, "_pb_tool_behavior_guidance", True):
+        if "memory" in agent.valid_tool_names:
+            tool_guidance.append(MEMORY_GUIDANCE)
+        if "session_search" in agent.valid_tool_names:
+            tool_guidance.append(SESSION_SEARCH_GUIDANCE)
+        if "skill_manage" in agent.valid_tool_names:
+            tool_guidance.append(SKILLS_GUIDANCE)
     # Kanban worker/orchestrator lifecycle — only present when the
     # dispatcher spawned this process (kanban_show check_fn gates on
     # HERMES_KANBAN_TASK env var). Normal chat sessions never see
@@ -239,7 +241,7 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
 
     # Steering only lands inside tool results, so it's only reachable when the
     # agent has tools. Static text → byte-stable prompt (no cache hit).
-    if agent.valid_tool_names:
+    if agent.valid_tool_names and getattr(agent, "_pb_steer_channel_note", True):
         stable_parts.append(STEER_CHANNEL_NOTE)
 
     # Computer-use — goes in as its own block rather than being merged into
@@ -250,9 +252,10 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
         from agent.prompt_builder import computer_use_guidance
         stable_parts.append(computer_use_guidance())
 
-    nous_subscription_prompt = _r.build_nous_subscription_prompt(agent.valid_tool_names)
-    if nous_subscription_prompt:
-        stable_parts.append(nous_subscription_prompt)
+    if getattr(agent, "_pb_nous_subscription", True):
+        nous_subscription_prompt = _r.build_nous_subscription_prompt(agent.valid_tool_names)
+        if nous_subscription_prompt:
+            stable_parts.append(nous_subscription_prompt)
     # Tool-use enforcement: tells the model to actually call tools instead
     # of describing intended actions.  Controlled by config.yaml
     # agent.tool_use_enforcement:
@@ -276,18 +279,19 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
             _inject = any(p in model_lower for p in TOOL_USE_ENFORCEMENT_MODELS)
         if _inject:
             stable_parts.append(TOOL_USE_ENFORCEMENT_GUIDANCE)
-            _model_lower = (agent.model or "").lower()
-            # Google model operational guidance (conciseness, absolute
-            # paths, parallel tool calls, verify-before-edit, etc.)
-            if "gemini" in _model_lower or "gemma" in _model_lower:
-                stable_parts.append(GOOGLE_MODEL_OPERATIONAL_GUIDANCE)
-            # OpenAI GPT/Codex execution discipline (tool persistence,
-            # prerequisite checks, verification, anti-hallucination).
-            # Also applied to xAI Grok — same failure modes (claims completion
-            # without tool calls, suggests workarounds instead of using
-            # existing tools, replies with plans instead of executing).
-            if "gpt" in _model_lower or "codex" in _model_lower or "grok" in _model_lower:
-                stable_parts.append(OPENAI_MODEL_EXECUTION_GUIDANCE)
+            if getattr(agent, "_pb_model_guidance", True):
+                _model_lower = (agent.model or "").lower()
+                # Google model operational guidance (conciseness, absolute
+                # paths, parallel tool calls, verify-before-edit, etc.)
+                if "gemini" in _model_lower or "gemma" in _model_lower:
+                    stable_parts.append(GOOGLE_MODEL_OPERATIONAL_GUIDANCE)
+                # OpenAI GPT/Codex execution discipline (tool persistence,
+                # prerequisite checks, verification, anti-hallucination).
+                # Also applied to xAI Grok — same failure modes (claims completion
+                # without tool calls, suggests workarounds instead of using
+                # existing tools, replies with plans instead of executing).
+                if "gpt" in _model_lower or "codex" in _model_lower or "grok" in _model_lower:
+                    stable_parts.append(OPENAI_MODEL_EXECUTION_GUIDANCE)
 
     has_skills_tools = any(name in agent.valid_tool_names for name in ['skills_list', 'skill_view', 'skill_manage'])
     if has_skills_tools:
@@ -338,16 +342,17 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
     # Environment hints (WSL, Termux, etc.) — tell the agent about the
     # execution environment so it can translate paths and adapt behavior.
     # Stable for the lifetime of the process.
-    _env_hints = _r.build_environment_hints()
-    if _env_hints:
-        stable_parts.append(_env_hints)
+    if getattr(agent, "_pb_environment_hints", True):
+        _env_hints = _r.build_environment_hints()
+        if _env_hints:
+            stable_parts.append(_env_hints)
 
     # Coding posture (base Hermes, any interactive coding surface in a code
     # workspace — see agent/coding_context.py). The operating brief + the live
     # git/workspace snapshot are built once here and cached for the session;
     # the snapshot is never re-probed per turn (that would break the prompt
     # cache), so the brief tells the model to re-check git before relying on it.
-    if agent.valid_tool_names:
+    if agent.valid_tool_names and getattr(agent, "_pb_coding_guidance", True):
         try:
             from agent.coding_context import coding_system_blocks
 
@@ -386,48 +391,50 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
     # mid-session, so this doesn't break the prompt cache.
     # See file_safety._resolve_active_profile_name + classify_cross_profile_target
     # for the matching tool-side guard.
-    try:
-        from agent.file_safety import _resolve_active_profile_name
-        active_profile = _resolve_active_profile_name()
-    except Exception:
-        active_profile = "default"
-    if active_profile == "default":
-        stable_parts.append(
-            "Active Hermes profile: default. Other profiles (if any) live "
-            "under ~/.hermes/profiles/<name>/. Each profile has its own "
-            "skills/, plugins/, cron/, and memories/ that affect a different "
-            "session than this one. Do not modify another profile's "
-            "skills/plugins/cron/memories unless the user explicitly directs "
-            "you to."
-        )
-    else:
-        stable_parts.append(
-            f"Active Hermes profile: {active_profile}. This session reads "
-            f"and writes ~/.hermes/profiles/{active_profile}/. The default "
-            f"profile's data lives at ~/.hermes/skills/, ~/.hermes/plugins/, "
-            f"~/.hermes/cron/, ~/.hermes/memories/ — those belong to a "
-            f"different session run from a different shell. Do NOT modify "
-            f"another profile's skills/plugins/cron/memories unless the user "
-            f"explicitly directs you to. The cross-profile write guard will "
-            f"refuse such writes by default; pass cross_profile=True only "
-            f"after explicit direction."
-        )
+    if getattr(agent, "_pb_active_profile_hint", True):
+        try:
+            from agent.file_safety import _resolve_active_profile_name
+            active_profile = _resolve_active_profile_name()
+        except Exception:
+            active_profile = "default"
+        if active_profile == "default":
+            stable_parts.append(
+                "Active Hermes profile: default. Other profiles (if any) live "
+                "under ~/.hermes/profiles/<name>/. Each profile has its own "
+                "skills/, plugins/, cron/, and memories/ that affect a different "
+                "session than this one. Do not modify another profile's "
+                "skills/plugins/cron/memories unless the user explicitly directs "
+                "you to."
+            )
+        else:
+            stable_parts.append(
+                f"Active Hermes profile: {active_profile}. This session reads "
+                f"and writes ~/.hermes/profiles/{active_profile}/. The default "
+                f"profile's data lives at ~/.hermes/skills/, ~/.hermes/plugins/, "
+                f"~/.hermes/cron/, ~/.hermes/memories/ — those belong to a "
+                f"different session run from a different shell. Do NOT modify "
+                f"another profile's skills/plugins/cron/memories unless the user "
+                f"explicitly directs you to. The cross-profile write guard will "
+                f"refuse such writes by default; pass cross_profile=True only "
+                f"after explicit direction."
+            )
 
     platform_key = (agent.platform or "").lower().strip()
     # Resolve the built-in/plugin default hint for this platform, then apply
     # any per-platform override from config (platform_hints.<platform>).
     _default_hint = ""
-    if platform_key in PLATFORM_HINTS:
-        _default_hint = PLATFORM_HINTS[platform_key]
-    elif platform_key:
-        # Check plugin registry for platform-specific LLM guidance
-        try:
-            from gateway.platform_registry import platform_registry
-            _entry = platform_registry.get(platform_key)
-            if _entry and _entry.platform_hint:
-                _default_hint = _entry.platform_hint
-        except Exception:
-            pass
+    if getattr(agent, "_pb_platform_hint", True):
+        if platform_key in PLATFORM_HINTS:
+            _default_hint = PLATFORM_HINTS[platform_key]
+        elif platform_key:
+            # Check plugin registry for platform-specific LLM guidance
+            try:
+                from gateway.platform_registry import platform_registry
+                _entry = platform_registry.get(platform_key)
+                if _entry and _entry.platform_hint:
+                    _default_hint = _entry.platform_hint
+            except Exception:
+                pass
 
     _effective_hint = _resolve_platform_hint(agent, platform_key, _default_hint)
     if platform_key == "tui" and _effective_hint:

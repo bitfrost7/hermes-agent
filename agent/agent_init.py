@@ -1469,6 +1469,24 @@ def init_agent(
         except Exception:
             pass
 
+    # ── Prompt-block visibility toggles ──
+    # Reads config.yaml ``agent.prompt_blocks``.  Each key controls whether a
+    # specific block of the system prompt is injected.  Default True preserves
+    # existing behavior.  Set False per-profile to strip unused blocks and
+    # reduce the cached system-prompt token count.
+    _pb_cfg = _agent_section.get("prompt_blocks", {})
+    if not isinstance(_pb_cfg, dict):
+        _pb_cfg = {}
+    agent._pb_hermes_help_guidance = bool(_pb_cfg.get("hermes_help_guidance", True))
+    agent._pb_nous_subscription = bool(_pb_cfg.get("nous_subscription", True))
+    agent._pb_tool_behavior_guidance = bool(_pb_cfg.get("tool_behavior_guidance", True))
+    agent._pb_steer_channel_note = bool(_pb_cfg.get("steer_channel_note", True))
+    agent._pb_model_guidance = bool(_pb_cfg.get("model_guidance", True))
+    agent._pb_environment_hints = bool(_pb_cfg.get("environment_hints", True))
+    agent._pb_coding_guidance = bool(_pb_cfg.get("coding_guidance", True))
+    agent._pb_active_profile_hint = bool(_pb_cfg.get("active_profile_hint", True))
+    agent._pb_platform_hint = bool(_pb_cfg.get("platform_hint", True))
+
     # Per-platform prompt-hint overrides (config.yaml → platform_hints).
     # Lets an enterprise admin append to or replace Hermes' built-in
     # platform hint for a single messaging platform (e.g. WhatsApp) without
