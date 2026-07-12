@@ -113,7 +113,12 @@ def inject_memory_provider_tools(agent: Any) -> int:
         "memory" not in existing_tool_names
         and not memory_provider_tools_enabled(getattr(agent, "enabled_toolsets", None))
     ):
-        return 0
+        # Don't block injection if the memory manager has registered providers
+        # (e.g. open-second-brain via memory.provider config). The built-in
+        # memory toolset and external memory-provider tools are independent
+        # concerns — disabling one should not gate the other.
+        if not memory_manager.providers:
+            return 0
 
     get_schemas = getattr(memory_manager, "get_all_tool_schemas", None)
     if not callable(get_schemas):
