@@ -864,6 +864,19 @@ def _read_terminal_shell_init_config() -> tuple[list[str], bool]:
         return [], True
 
 
+def _detect_shell_name() -> str:
+    """Return the user's shell name (``zsh``, ``bash``, etc.) from ``$SHELL``.
+
+    Returns ``"bash"`` if ``$SHELL`` is unset, empty, or not a recognised
+    POSIX-sh-family shell, so callers always get a safe default.
+    """
+    raw = os.environ.get("SHELL", "") or ""
+    name = Path(raw).name
+    if name in _SPAWN_COMPATIBLE_SHELLS:
+        return name
+    return "bash"
+
+
 def _resolve_shell_init_files() -> list[str]:
     """Resolve the list of files to source before the login-shell snapshot.
 
@@ -871,29 +884,26 @@ def _resolve_shell_init_files() -> list[str]:
     exist on disk, so a missing ``~/.bashrc`` never breaks the snapshot.
     The ``auto_source_bashrc`` path runs only when the user hasn't supplied
     an explicit list — once they have, Hermes trusts them.
+
+    When ``auto_source_bashrc`` is active, the shell from ``$SHELL`` is
+    detected so the right rc files (``.zshrc`` for zsh, ``.bashrc`` for bash)
+    are selected.
     """
     explicit, auto_bashrc = _read_terminal_shell_init_config()
-
     candidates: list[str] = []
     if explicit:
         candidates.extend(explicit)
     elif auto_bashrc and not _IS_WINDOWS:
-        # Build a login-shell-ish source list so tools like n / nvm / asdf /
-        # pyenv that self-install into the user's shell rc land on PATH in
-        # the captured snapshot.
-        #
-        # ~/.profile and ~/.bash_profile run first because they have no
-        # interactivity guard — installers like ``n`` and ``nvm`` append
-        # their PATH export there on most distros, and a non-interactive
-        # ``. ~/.profile`` picks that up.
-        #
-        # ~/.bashrc runs last. On Debian/Ubuntu the default bashrc starts
-        # with ``case $- in *i*) ;; *) return;; esac`` and exits early
-        # when sourced non-interactively, which is why sourcing bashrc
-        # alone misses nvm/n PATH additions placed below that guard. We
-        # still include it so users who put PATH logic in bashrc (and
-        # stripped the guard, or never had one) keep working.
-        candidates.extend(["~/.profile", "~/.bash_profile", "~/.bashrc"])
+        # Detect the user's shell to pick the right rc files.
+        shell_name = _detect_shell_name()
+        # ~/.profile is the POSIX standard and is sourced by both bash and zsh.
+        candidates.append("~/.profile")
+        if shell_name == "zsh":
+            candidates.append("~/.zshenv")
+            candidates.append("~/.zshrc")
+        else:
+            candidates.append("~/.bash_profile")
+            candidates.append("~/.bashrc")
 
     resolved: list[str] = []
     for raw in candidates:
@@ -997,13 +1007,12 @@ class LocalEnvironment(BaseEnvironment):
     def _run_bash(self, cmd_string: str, *, login: bool = False,
                   timeout: int = 120,
                   stdin_data: str | None = None) -> subprocess.Popen:
-        bash = _find_bash()
+        bash = _find_shell()
         # For login-shell invocations (used by init_session to build the
-        # environment snapshot), prepend sources for the user's bashrc /
-        # custom init files so tools registered outside bash_profile
-        # (nvm, asdf, pyenv, …) end up on PATH in the captured snapshot.
-        # Non-login invocations are already sourcing the snapshot and
-        # don't need this.
+        # environment snapshot), prepend sources for the user's rc files so
+        # tools registered outside the shell profile (nvm, asdf, pyenv, …)
+        # end up on PATH in the captured snapshot.  Non-login invocations
+        # are already sourcing the snapshot and don't need this.
         if login:
             init_files = _resolve_shell_init_files()
             if init_files:

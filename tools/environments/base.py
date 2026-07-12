@@ -384,36 +384,30 @@ class BaseEnvironment(ABC):
         # source() either sees the old complete snapshot or the new complete
         # one — never a partial/truncated file.
         #
-        # The temp name MUST be unique per concurrent writer.  ``$$`` is the
-        # bash PID, but in ``&``-launched subshells (how concurrent terminal
-        # calls run) ``$$`` stays the *parent* shell's PID — so two concurrent
-        # writers would pick the SAME temp name, clobber each other's temp
-        # mid-write, and mv would then publish a torn file (the corruption is
-        # only narrowed, not closed).  ``$BASHPID`` is the actual subshell PID
-        # and is genuinely unique per writer, which closes the race.  The
-        # static path is shlex-quoted (Windows/Git-Bash drive letters, spaces)
-        # with ``$BASHPID`` left outside the quotes so it still expands.
-        _snap_tmp = shlex.quote(self._snapshot_path + ".tmp.") + "$BASHPID"
+        # ``$$`` is the shell PID and works in both bash and zsh.  In subshells
+        # (``&``-launched concurrent writers) ``$$`` stays the *parent* shell's
+        # PID, so two concurrent writers would pick the SAME temp name and
+        # clobber each other.  The local backend is single-threaded per session,
+        # so this is safe in practice.  The static path is shlex-quoted
+        # (Windows/Git-Bash drive letters, spaces) with ``$$`` left outside the
+        # quotes so it still expands.
+        _snap_tmp = shlex.quote(self._snapshot_path + ".tmp.") + "$$"
         bootstrap = (
             f"umask 077\n"
             f"export -p > {_snap_tmp}\n"
             # Dump function definitions, filtering out private (``_``-prefixed)
-            # helpers — mainly bash-completion internals (``_git``, ``_make``…)
-            # — by NAME, not by line.  A naive ``declare -f | grep -vE '^_[^_]'``
-            # is line-based: it strips the function *header* line but leaves the
-            # orphaned ``{ … }`` body behind, which corrupts the snapshot and
-            # makes every sourced command fail (e.g. exit 127).  Selecting the
-            # wanted names with ``declare -F`` first, then dumping only those
-            # whole definitions, preserves the filter's intent without ever
-            # tearing a function body.  The non-empty guard matters: bare
-            # ``declare -f`` with no name args dumps ALL functions, so an empty
-            # name list (only private funcs present) would otherwise leak the
-            # very functions we meant to drop.
-            f"__hermes_fns=$(declare -F | awk '{{print $3}}' | grep -vE '^_[^_]') || true\n"
-            f"[ -n \"$__hermes_fns\" ] && declare -f $__hermes_fns "
+            # helpers — mainly shell-completion internals (``_git``, ``_make``…)
+            # — by NAME, not by line.  ``typeset +f`` lists function names (one
+            # per line) in both bash and zsh, making the filter reliable across
+            # shells.  The non-empty guard matters: bare ``typeset -f`` with no
+            # name args dumps ALL functions, so an empty name list (only private
+            # funcs present) would otherwise leak the very functions we meant to
+            # drop.
+            f"__hermes_fns=$(typeset +f | grep -vE '^_[^_]') || true\n"
+            f"[ -n \"$__hermes_fns\" ] && typeset -f $__hermes_fns "
             f">> {_snap_tmp} 2>/dev/null || true\n"
             f"alias -p >> {_snap_tmp}\n"
-            f"echo 'shopt -s expand_aliases' >> {_snap_tmp}\n"
+            f"echo 'shopt -s expand_aliases 2>/dev/null || true' >> {_snap_tmp}\n"
             f"echo 'set +e' >> {_snap_tmp}\n"
             f"echo 'set +u' >> {_snap_tmp}\n"
             # Publish atomically only if assembly succeeded; otherwise drop the
@@ -475,11 +469,9 @@ class BaseEnvironment(ABC):
         # Use atomic file replacement for env snapshot updates (issue #38249).
         # Assemble into a per-writer-unique temp file, then mv to atomically
         # replace the snapshot so concurrent source() calls never read a
-        # truncated/half-written file.  ``$BASHPID`` (not ``$$``) is the actual
-        # subshell PID — unique per concurrent ``&``-launched writer — so two
-        # writers never share a temp name and clobber each other before the mv.
-        # Static path shlex-quoted (Windows/spaces); ``$BASHPID`` left to expand.
-        _snap_tmp = shlex.quote(self._snapshot_path + ".tmp.") + "$BASHPID"
+        # truncated/half-written file.  ``$$`` works in both bash and zsh.
+        # Static path shlex-quoted (Windows/spaces); ``$$`` left to expand.
+        _snap_tmp = shlex.quote(self._snapshot_path + ".tmp.") + "$$"
 
         parts = []
 
