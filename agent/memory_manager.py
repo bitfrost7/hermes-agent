@@ -333,6 +333,50 @@ class StreamingContextScrubber:
             self._at_block_boundary = self._at_block_boundary and text.strip() == ""
 
 
+def _is_effectively_empty(content: str) -> bool:
+    """Check if *content* is a JSON object whose array fields are all empty.
+
+    Helps skip empty prefetch results from external memory providers that
+    return a JSON wrapper even when there are no items to recall (e.g.
+    ``{\"items\": [], ...}``).  Returns ``True`` when the content is a JSON
+    dict and every list-valued field is empty, every string field is blank,
+    and every dict field is empty.
+    """
+    if not content or not content.strip():
+        return True
+    try:
+        data = json.loads(content)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return False
+    if not isinstance(data, dict):
+        return False
+    for value in data.values():
+        if isinstance(value, list):
+            if value:
+                return False
+        elif isinstance(value, str):
+            if value.strip():
+                return False
+        elif isinstance(value, dict):
+            if value:
+                return False
+        elif value is not None:
+            # Non-empty number, bool, or other scalar — not empty
+            return False
+    return True
+
+
+def _strip_empty_prefetch(content: str) -> str:
+    """Return empty string when *content* is effectively empty, else *content*.
+
+    Wraps :func:`_is_effectively_empty` so callers can chain it as a filter
+    before ``build_memory_context_block``.
+    """
+    if _is_effectively_empty(content):
+        return ""
+    return content
+
+
 def build_memory_context_block(raw_context: str) -> str:
     """Wrap prefetched memory in a fenced block with system note."""
     if not raw_context or not raw_context.strip():

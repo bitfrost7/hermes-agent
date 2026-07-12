@@ -2214,6 +2214,11 @@ DEFAULT_CONFIG = {
         # "hindsight", "holographic", "retaindb", "byterover".
         # Only ONE external provider is allowed at a time.
         "provider": "",
+        # When true, skip injecting the memory-context block when the
+        # prefetch result is effectively empty (e.g. a JSON object with
+        # an empty ``items`` array).  This prevents empty recall results
+        # from wasting the model's attention on every turn.
+        "skip_empty_prefetch": False,
     },
 
     # Subagent delegation — override the provider:model used by delegate_task

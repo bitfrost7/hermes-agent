@@ -11,8 +11,8 @@ Three tiers are joined with ``\\n\\n``:
 
 * ``stable``   — identity (SOUL.md or DEFAULT_AGENT_IDENTITY), tool
   guidance, computer-use guidance, nous subscription block, tool-use
-  enforcement guidance + per-model operational guidance, skills prompt,
-  alibaba model-name workaround, environment hints, platform hints.
+  enforcement guidance + per-model operational guidance, available skills
+  list, alibaba model-name workaround, environment hints, platform hints.
 * ``context``  — caller-supplied ``system_message`` plus context files
   (AGENTS.md / .cursorrules / etc.) discovered under ``TERMINAL_CWD``.
 * ``volatile`` — memory snapshot, USER.md profile, external memory

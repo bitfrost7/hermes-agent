@@ -34,7 +34,7 @@ from agent.error_classifier import FailoverReason, classify_api_error
 from agent.iteration_budget import IterationBudget
 from agent.turn_context import build_turn_context
 from agent.turn_retry_state import TurnRetryState
-from agent.memory_manager import build_memory_context_block
+from agent.memory_manager import build_memory_context_block, _strip_empty_prefetch
 from agent.message_sanitization import (
     close_interrupted_tool_sequence,
     _repair_tool_call_arguments,
@@ -801,6 +801,12 @@ def run_conversation(
             if idx == current_turn_user_idx and msg.get("role") == "user":
                 _injections = []
                 if _ext_prefetch_cache:
+                    # When skip_empty_prefetch is set, check if the
+                    # prefetch result is effectively empty (e.g. a JSON
+                    # object with empty array fields) and skip it so the
+                    # model's attention isn't wasted on empty results.
+                    if getattr(agent, "_skip_empty_prefetch", False):
+                        _ext_prefetch_cache = _strip_empty_prefetch(_ext_prefetch_cache)
                     _fenced = build_memory_context_block(_ext_prefetch_cache)
                     if _fenced:
                         _injections.append(_fenced)

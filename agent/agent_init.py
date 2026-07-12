@@ -1335,6 +1335,7 @@ def init_agent(
             mem_config = _agent_cfg.get("memory", {})
             agent._memory_enabled = mem_config.get("memory_enabled", False)
             agent._user_profile_enabled = mem_config.get("user_profile_enabled", False)
+            agent._skip_empty_prefetch = bool(mem_config.get("skip_empty_prefetch", False))
             agent._memory_nudge_interval = int(mem_config.get("nudge_interval", 10))
             if agent._memory_enabled or agent._user_profile_enabled:
                 from tools.memory_tool import MemoryStore
