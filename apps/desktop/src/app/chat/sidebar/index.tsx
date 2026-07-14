@@ -145,7 +145,7 @@ const SIDEBAR_NAV: SidebarNavItem[] = [
   },
   { id: 'messaging', label: '', icon: props => <Codicon name="comment" {...props} />, route: MESSAGING_ROUTE },
   { id: 'artifacts', label: '', icon: props => <Codicon name="files" {...props} />, route: ARTIFACTS_ROUTE },
-  { id: 'workflows', label: '', icon: props => <Codicon name="run-all" {...props} />, route: WORKFLOWS_ROUTE }
+  { id: 'workflows', label: '', icon: props => <Codicon name="preview" {...props} />, route: WORKFLOWS_ROUTE }
 ]
 
 // Two modes via the `compact` height variant (styles.css):
