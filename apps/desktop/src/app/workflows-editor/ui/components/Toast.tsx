@@ -1,53 +1,66 @@
-import { Toast } from "@base-ui/react/toast";
+import { createContext, useCallback, useContext, useState } from "react";
 
-// App-level toast host built on Base UI's Toast parts, so styling and a11y
-// wiring (role, keyboard dismiss, focus management) live in one place like the
-// other ui/components primitives. Wrap a subtree in <ToastHost> and call
-// `useToasts().add(...)` from any descendant to surface a dismissible
-// notification. The viewport renders the live toast list.
-
-/** Custom per-toast data. `testId` lets a specific caller tag its toast for a
- *  stable test/query hook without the host knowing about that caller. */
 export interface ToastData {
   testId?: string;
 }
 
+interface ToastItem {
+  id: number;
+  title?: string;
+  description?: string;
+  type?: string;
+  timeout?: number;
+  data?: ToastData;
+}
+
+interface ToastManager {
+  toasts: ToastItem[];
+  add: (toast: Omit<ToastItem, "id">) => void;
+  remove: (id: number) => void;
+}
+
+const ToastContext = createContext<ToastManager>({ toasts: [], add: () => {}, remove: () => {} });
+
+let nextId = 0;
+
 export function ToastHost({ children }: { children: React.ReactNode }): React.ReactElement {
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+
+  const add = useCallback((toast: Omit<ToastItem, "id">) => {
+    const id = nextId++;
+    setToasts((prev) => [...prev, { ...toast, id }]);
+    const timeout = toast.timeout ?? 5000;
+    if (timeout > 0) {
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, timeout);
+    }
+  }, []);
+
+  const remove = useCallback((id: number) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
   return (
-    <Toast.Provider>
+    <ToastContext.Provider value={{ toasts, add, remove }}>
       {children}
-      <ToastList />
-    </Toast.Provider>
-  );
-}
-
-function ToastList(): React.ReactElement {
-  const { toasts } = Toast.useToastManager<ToastData>();
-  return (
-    <Toast.Viewport className="hw-toast-viewport">
-      {toasts.map((toast) => (
-        <Toast.Root
-          key={toast.id}
-          toast={toast}
-          className={`hw-toast hw-toast--${toast.type ?? "info"}`}
-          data-testid={toast.data?.testId}
-        >
-          <div className="hw-toast__body">
-            {toast.title ? <Toast.Title className="hw-toast__title" /> : null}
-            <Toast.Description className="hw-toast__description" />
+      <div className="hw-toast-viewport">
+        {toasts.map((toast) => (
+          <div key={toast.id} className={`hw-toast hw-toast--${toast.type ?? "info"}`} data-testid={toast.data?.testId}>
+            <div className="hw-toast__body">
+              {toast.title && <p className="hw-toast__title">{toast.title}</p>}
+              {toast.description && <p className="hw-toast__description">{toast.description}</p>}
+            </div>
+            <button className="hw-toast__close" onClick={() => remove(toast.id)} aria-label="Dismiss notification">
+              ×
+            </button>
           </div>
-          <Toast.Close className="hw-toast__close" aria-label="Dismiss notification">
-            ×
-          </Toast.Close>
-        </Toast.Root>
-      ))}
-    </Toast.Viewport>
+        ))}
+      </div>
+    </ToastContext.Provider>
   );
 }
 
-/** The toast manager for the nearest <ToastHost>. `add({ title, description,
- *  type, priority, timeout, data })` queues a toast; `timeout: 0` keeps it until
- *  dismissed (right for an error the operator must act on). */
-export function useToasts(): ReturnType<typeof Toast.useToastManager<ToastData>> {
-  return Toast.useToastManager<ToastData>();
+export function useToasts(): ToastManager {
+  return useContext(ToastContext);
 }
