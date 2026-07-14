@@ -413,15 +413,16 @@ export function saveHermesConfig(config: HermesConfigRecord): Promise<{ ok: bool
   })
 }
 
+// surface=declared serves the curated desktop schema; the dashboard consumes the raw plugin schema.
 export function getMemoryProviderConfig(provider: string): Promise<MemoryProviderConfig> {
   return window.hermesDesktop.api<MemoryProviderConfig>({
-    path: `/api/memory/providers/${encodeURIComponent(provider)}/config`
+    path: `/api/memory/providers/${encodeURIComponent(provider)}/config?surface=declared`
   })
 }
 
 export function saveMemoryProviderConfig(provider: string, values: Record<string, string>): Promise<{ ok: boolean }> {
   return window.hermesDesktop.api<{ ok: boolean }>({
-    path: `/api/memory/providers/${encodeURIComponent(provider)}/config`,
+    path: `/api/memory/providers/${encodeURIComponent(provider)}/config?surface=declared`,
     method: 'PUT',
     body: { values }
   })
@@ -1204,5 +1205,85 @@ export function runDebugShare(): Promise<DebugShareResponse> {
     body: {},
     // Synchronous upload of report + logs to the paste service.
     timeoutMs: 120_000
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Hermes Workflows API
+// ---------------------------------------------------------------------------
+
+export interface WorkflowInfo {
+  id: string
+  enabled: boolean
+  scope: string
+  trigger?: { type: string }
+  name?: string
+  summary?: string
+  last_run_at?: string | null
+  last_status?: string | null
+}
+
+export interface WorkflowRun {
+  run_id: string
+  workflow_id: string
+  status: string
+  current_node?: string
+  started_at?: string
+  finished_at?: string
+  duration?: number
+}
+
+export interface WorkflowListResponse {
+  workflows: WorkflowInfo[]
+}
+
+export interface WorkflowRunsResponse {
+  runs: WorkflowRun[]
+}
+
+export function listWorkflows(): Promise<WorkflowListResponse> {
+  return window.hermesDesktop.api<WorkflowListResponse>({
+    path: '/api/plugins/hermes-workflows/workflows'
+  })
+}
+
+export function getWorkflow(id: string): Promise<{ workflow: any; ui?: any; path: string }> {
+  return window.hermesDesktop.api({
+    path: `/api/plugins/hermes-workflows/workflows/${encodeURIComponent(id)}`
+  })
+}
+
+export function listWorkflowRuns(scope: 'active' | 'all' = 'active', workflowId?: string): Promise<WorkflowRunsResponse> {
+  const params = new URLSearchParams({ scope })
+  if (workflowId) params.set('workflow_id', workflowId)
+  return window.hermesDesktop.api<WorkflowRunsResponse>({
+    path: `/api/plugins/hermes-workflows/runs?${params}`
+  })
+}
+
+export function runWorkflow(workflowId: string): Promise<{ run_id: string; status: string }> {
+  return window.hermesDesktop.api({
+    path: `/api/plugins/hermes-workflows/workflows/${encodeURIComponent(workflowId)}/run`,
+    method: 'POST',
+    body: {}
+  })
+}
+
+export function cancelWorkflowRun(runId: string): Promise<{ status: string }> {
+  return window.hermesDesktop.api({
+    path: `/api/plugins/hermes-workflows/runs/${encodeURIComponent(runId)}/cancel`,
+    method: 'POST'
+  })
+}
+
+export function getWorkflowRun(runId: string): Promise<{ run: any; nodes: Record<string, any> }> {
+  return window.hermesDesktop.api({
+    path: `/api/plugins/hermes-workflows/runs/${encodeURIComponent(runId)}`
+  })
+}
+
+export function getWorkflowStatus(runId: string): Promise<{ run_id: string; status: string; current_node?: string }> {
+  return window.hermesDesktop.api({
+    path: `/api/plugins/hermes-workflows/runs/${encodeURIComponent(runId)}/status`
   })
 }
