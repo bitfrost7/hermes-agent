@@ -58,11 +58,11 @@ export function PluginHeader({
     <header className="hw-pluginbar">
       <span
         className="hw-pluginbar__brand"
-        title={`Hermes Workflows v${__PLUGIN_VERSION__}-b${__PLUGIN_BUILD__}`}
+        title={`Hermes Workflows`}
       >
         <span className="hw-pluginbar__brand-name">Workflows</span>
         <span className="hw-pluginbar__version">
-          v{__PLUGIN_VERSION__}-b{__PLUGIN_BUILD__}
+          Workflows
         </span>
       </span>
       <div className="hw-pluginbar__left" ref={leftRef} />
