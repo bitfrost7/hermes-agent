@@ -268,14 +268,14 @@ from hermes_cli.memory_oauth import router as _memory_oauth_router  # noqa: E402
 
 app.include_router(_memory_oauth_router)
 
-# Hermes Workflows API — built-in, no sidecar needed.
+# Hermes Workflows API — now handled by the standalone plugin via
+# _mount_plugin_api_routes() below (the plugin's plugin_api.py is
+# auto-discovered from its manifest.json). The env var is still set
+# so the plugin's hermes_workflows package can discover the repo path.
 try:
-    # Point the TS core to the plugin's packages directory
     _wf_plugin = Path(os.environ.get("HERMES_HOME", str(Path.home() / ".hermes"))) / "plugins" / "hermes-workflows"
     if _wf_plugin.is_dir():
         os.environ.setdefault("HERMES_WORKFLOWS_REPO", str(_wf_plugin))
-    from hermes_cli.workflows_api.gateway_routes import router as _workflows_router  # noqa: E402
-    app.include_router(_workflows_router, prefix="/api/plugins/hermes-workflows")
 except Exception:
     pass
 
