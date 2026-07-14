@@ -457,9 +457,12 @@ def _extract_text(
     parts: list[str] = []
     for block in prompt:
         if isinstance(block, TextContentBlock):
-            parts.append(block.text)
+            if block.text is not None:
+                parts.append(block.text)
         elif hasattr(block, "text"):
-            parts.append(str(block.text))
+            text_val = block.text
+            if text_val is not None:
+                parts.append(str(text_val))
     return "\n".join(parts)
 
 
@@ -525,7 +528,7 @@ def _content_blocks_to_openai_user_content(
     # providers keep the exact legacy path. Switch to structured content only
     # when an actual non-text block is present.
     if all(part.get("type") == "text" for part in parts):
-        return "\n".join(text_parts)
+        return "\n".join(t for t in text_parts if t is not None)
 
     return parts
 
