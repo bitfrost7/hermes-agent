@@ -268,6 +268,13 @@ from hermes_cli.memory_oauth import router as _memory_oauth_router  # noqa: E402
 
 app.include_router(_memory_oauth_router)
 
+# Hermes Workflows API — built-in, no sidecar needed.
+try:
+    from hermes_cli.workflows_api.gateway_routes import router as _workflows_router  # noqa: E402
+    app.include_router(_workflows_router, prefix="/api/plugins/hermes-workflows")
+except Exception:
+    pass
+
 # ---------------------------------------------------------------------------
 # Session token for protecting sensitive endpoints (reveal).
 # The desktop shell mints the token and injects it via

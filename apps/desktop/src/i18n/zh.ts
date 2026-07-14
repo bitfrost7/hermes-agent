@@ -1243,7 +1243,8 @@ export const zh: Translations = {
       settings: { title: '设置', detail: '配置 Hermes 桌面端' },
       skills: { title: '技能与工具', detail: '启用技能、工具集与提供方' },
       messaging: { title: '消息平台', detail: '配置 Telegram、Slack、Discord 等' },
-      artifacts: { title: '产物', detail: '浏览生成的输出' }
+      artifacts: { title: '产物', detail: '浏览生成的输出' },
+      workflows: { title: '工作流', detail: '可视化工作流编排' }
     },
     sectionEntries: {
       sessions: { title: '会话面板', detail: '搜索、置顶与管理会话' },
