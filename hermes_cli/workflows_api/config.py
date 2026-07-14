@@ -142,7 +142,18 @@ def default_deliver() -> str | None:
 
 
 def repo_root() -> Path:
-    return Path(__file__).resolve().parents[1]
+    # When built-in to hermes_cli, point to the original plugin dir for the TS core
+    env_path = os.environ.get("HERMES_WORKFLOWS_REPO")
+    if env_path:
+        return Path(env_path).resolve()
+    candidate = Path(__file__).resolve().parents[1]
+    if (candidate / "packages" / "core" / "src" / "cli.ts").exists():
+        return candidate
+    # Fallback: look in the standard plugin location
+    plugin_path = Path(os.environ.get("HERMES_HOME", "~/.hermes")).expanduser() / "plugins" / "hermes-workflows"
+    if (plugin_path / "packages" / "core" / "src" / "cli.ts").exists():
+        return plugin_path
+    return candidate
 
 
 def _stable_entrypoint(path: Path) -> Path:
