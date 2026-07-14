@@ -1,0 +1,24 @@
+node_modules/
+dist/
+coverage/
+*.log
+
+# The dashboard bundle is a committed build artifact (built from apps/dashboard).
+!dashboard/dist/
+!dashboard/dist/index.js
+!dashboard/dist/index.css
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# Local runtime state (never committed)
+*.db
+*.db-shm
+*.db-wal
+
+# Editor / OS
+.DS_Store
+.codegraph/
