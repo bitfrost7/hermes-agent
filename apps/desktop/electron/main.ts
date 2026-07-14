@@ -797,8 +797,6 @@ function registerMediaProtocol() {
 
 let mainWindow = null
 let hermesProcess = null
-/** @type {import('node:child_process').ChildProcess | null} */
-let workflowsProcess = null
 let connectionPromise = null
 // True while connection-config:apply soft-rehomes the primary — suppresses the
 // backend-exit toast so an intentional kill doesn't look like a crash.
