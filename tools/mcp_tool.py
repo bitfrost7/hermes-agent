@@ -4626,7 +4626,7 @@ def _normalize_mcp_input_schema(schema: dict | None) -> dict:
     OpenAI, Anthropic, Gemini, and Moonshot in one pass.
     """
     if not schema:
-        return {"type": "object", "properties": {}}
+        return {"type": "object", "properties": {}, "required": []}
 
     def _rewrite_local_refs(node):
         """Walk the schema, promoting legacy ``definitions`` to ``$defs``.
@@ -4723,6 +4723,12 @@ def _normalize_mcp_input_schema(schema: dict | None) -> dict:
                     else:
                         repaired.pop("required", None)
 
+            # Ensure required is always present as a list — some providers
+            # (modelverse/DeepSeek) reject schemas where required is absent,
+            # treating the missing field as null ("null is not of type 'array'").
+            if "required" not in repaired:
+                repaired["required"] = []
+
         return repaired
 
     normalized = _rewrite_local_refs(schema)
@@ -4731,9 +4737,9 @@ def _normalize_mcp_input_schema(schema: dict | None) -> dict:
 
     # Ensure top-level is a well-formed object schema
     if not isinstance(normalized, dict):
-        return {"type": "object", "properties": {}}
+        return {"type": "object", "properties": {}, "required": []}
     if normalized.get("type") == "object" and "properties" not in normalized:
-        normalized = {**normalized, "properties": {}}
+        normalized = {**normalized, "properties": {}, "required": []}
 
     return normalized
 
